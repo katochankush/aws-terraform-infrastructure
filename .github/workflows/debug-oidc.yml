@@ -1,0 +1,38 @@
+name: Debug OIDC token
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show env (for debugging)
+        run: |
+          echo "Runner: $RUNNER_OS"
+          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+          echo "GITHUB_REF: $GITHUB_REF"
+
+      - name: Request ID token (audience = sts.amazonaws.com)
+        id: get_token
+        run: |
+          # Request id token using built-in env variables
+          URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com"
+          TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$URL")
+          echo "DEBUG_TOKEN_RESPONSE=${TOKEN}" >> $GITHUB_OUTPUT
+
+      - name: Decode ID token payload and print sub/aud
+        run: |
+          set -e
+          TOKEN_JSON="${{ steps.get_token.outputs.DEBUG_TOKEN_RESPONSE }}"
+          ID_TOKEN=$(echo "$TOKEN_JSON" | jq -r '.value')
+          echo "id_token (first 160 chars): ${ID_TOKEN:0:160}"
+          # decode payload (second part)
+          PAYLOAD=$(echo "$ID_TOKEN" | cut -d'.' -f2)
+          # pad base64 if needed and decode
+          # base64 -d works on runner
+          echo "$PAYLOAD" | tr '_-' '/+' | sed 's/[^A-Za-z0-9+=/]//g' | base64 -d 2>/dev/null | jq .
