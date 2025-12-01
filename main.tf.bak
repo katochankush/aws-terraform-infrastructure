@@ -1,0 +1,126 @@
+# Get availability zones (we'll use the list supplied by variable)
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+resource "aws_vpc" "this" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = merge(var.tags, { Name = "upskill-vpc" })
+}
+
+# Internet Gateway for public subnets
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.this.id
+  tags = merge(var.tags, { Name = "upskill-igw" })
+}
+
+# Create public subnets (one per AZ)
+resource "aws_subnet" "public" {
+  count = length(var.azs)
+
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index) # /24 slices
+  availability_zone = var.azs[count.index]
+  map_public_ip_on_launch = true
+
+  tags = merge(var.tags, { Name = "upskill-public-${count.index + 1}" })
+}
+
+# Create private subnets (one per AZ)
+resource "aws_subnet" "private" {
+  count = length(var.azs)
+
+  vpc_id            = aws_vpc.this.id
+  # offset the index for private ranges so they don't overlap with public
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + length(var.azs))
+  availability_zone = var.azs[count.index]
+  map_public_ip_on_launch = false
+
+  tags = merge(var.tags, { Name = "upskill-private-${count.index + 1}" })
+}
+
+# Public route table + association
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.this.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = merge(var.tags, { Name = "upskill-public-rt" })
+}
+
+resource "aws_route_table_association" "public_assoc" {
+  count = length(aws_subnet.public)
+
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+# Optional NAT Gateway (single NAT in first public subnet) - note cost
+resource "aws_eip" "nat_eip" {
+  count = var.create_nat ? 1 : 0
+
+  domain = "vpc"
+  tags = merge(var.tags, { Name = "upskill-nat-eip" })
+}
+
+resource "aws_nat_gateway" "nat" {
+  count = var.create_nat ? 1 : 0
+
+  allocation_id = aws_eip.nat_eip[0].id
+  subnet_id     = aws_subnet.public[0].id
+  tags = merge(var.tags, { Name = "upskill-nat" })
+}
+
+# Private route table (no default route here)
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.this.id
+
+  tags = merge(var.tags, { Name = "upskill-private-rt" })
+}
+
+# Create a default route to NAT only if create_nat is true
+resource "aws_route" "private_default_to_nat" {
+  count = var.create_nat ? 1 : 0
+
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat[0].id
+}
+
+
+resource "aws_route_table_association" "private_assoc" {
+  count = length(aws_subnet.private)
+
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private.id
+}
+
+# Security group example - Bastion (SSH from your IP)
+resource "aws_security_group" "bastion_sg" {
+  name   = "upskill-bastion-sg"
+  vpc_id = aws_vpc.this.id
+
+  description = "Allow SSH from admin IP only"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["122.177.241.118/32"] # <-- change after apply to your-ip/32
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(var.tags, { Name = "upskill-bastion-sg" })
+}
