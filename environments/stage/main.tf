@@ -7,7 +7,7 @@ module "vpc" {
   create_nat     = var.create_nat
   tags           = var.tags
   allow_ssh_cidr = var.allow_ssh_cidr
-  name_prefix    = "stage"
+  name_prefix    = "dev"
 }
 
 output "vpc_id" { value = module.vpc.vpc_id }

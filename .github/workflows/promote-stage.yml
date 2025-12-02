@@ -1,39 +1,57 @@
-name: Promote to Stage
+name: Terraform Deploy - Stage
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches:
+      - stage
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  promote:
+  terraform:
+    name: Terraform Stage deploy
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    defaults:
+      run:
+        shell: bash
 
-      - name: Assume Stage role via OIDC
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::269825205299:role/GitHubActions-Terraform-Stage
           aws-region: us-east-1
+          audience: sts.amazonaws.com
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+      - name: Show repo and working-dir
+        run: |
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
+          echo "GITHUB_REF=$GITHUB_REF"
+          pwd
+          ls -la
 
-      - name: Terraform Init
+      - name: Terraform Init (Stage)
+        working-directory: ./environments/stage
         run: terraform init -input=false
-        working-directory: environments/stage
 
-      - name: Terraform Validate
+      - name: Terraform Validate (Stage)
+        working-directory: ./environments/stage
         run: terraform validate
-        working-directory: environments/stage
 
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan -input=false
-        working-directory: environments/stage
+      - name: Terraform Plan (Stage)
+        working-directory: ./environments/stage
+        run: terraform plan -out=/tmp/stage-tfplan -input=false
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: environments/stage
+      - name: Terraform Show Plan
+        run: terraform show -no-color /tmp/stage-tfplan || true
+
+      - name: Terraform Apply (Stage)
+        working-directory: ./environments/stage
+        run: terraform apply -input=false /tmp/stage-tfplan
