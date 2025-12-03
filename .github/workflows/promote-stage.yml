@@ -2,8 +2,7 @@ name: Terraform Deploy - Stage
 
 on:
   push:
-    branches:
-      - stage
+    branches: [ stage ]
 
 permissions:
   id-token: write
@@ -11,18 +10,32 @@ permissions:
 
 jobs:
   terraform:
-    name: Terraform Stage deploy
+    name: Terraform Stage Deploy
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # --- INSTALL TERRAFORM USING APT (ROBUST METHOD) ---
+      - name: Install Terraform (apt fallback)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gnupg software-properties-common curl lsb-release
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update -y
+          sudo apt-get install -y terraform || sudo apt-get install -y terraform=1.14.0
+
+      - name: Verify Terraform Installed
+        run: terraform version
+
+      # --- AWS OIDC CONFIG ---
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -30,13 +43,12 @@ jobs:
           aws-region: us-east-1
           audience: sts.amazonaws.com
 
-      - name: Show repo and working-dir
+      - name: Show working directory
         run: |
-          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
-          echo "GITHUB_REF=$GITHUB_REF"
-          pwd
+          echo "PWD = $(pwd)"
           ls -la
 
+      # --- TERRAFORM WORK FOR STAGE ENV ---
       - name: Terraform Init (Stage)
         working-directory: ./environments/stage
         run: terraform init -input=false
