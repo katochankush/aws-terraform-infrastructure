@@ -3,8 +3,9 @@ vpc_cidr = "10.0.0.0/16"
 azs = ["us-east-1a","us-east-1b"]
 create_nat = false
 tags = {
-  Owner = "upskill"
+  Owner = "DevOps-Project"
   Project = "vpc-lab-dev"
+  Environment = "dev"
 }
-# set your IP already in root variables but you can override here if needed
-allow_ssh_cidr = "122.177.241.118/32"
+# IMPORTANT: Replace with your actual admin IP before deployment
+allow_ssh_cidr = "203.0.113.50/32"
