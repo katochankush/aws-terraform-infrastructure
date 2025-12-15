@@ -8,12 +8,12 @@ resource "aws_vpc" "this" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  tags = merge(var.tags, { Name = var.name_prefix != "" ? "${var.name_prefix}-vpc" : "upskill-vpc" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-vpc" })
 }
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.this.id
-  tags = merge(var.tags, { Name = var.name_prefix != "" ? "${var.name_prefix}-igw" : "upskill-igw" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-igw" })
 }
 
 resource "aws_subnet" "public" {
@@ -24,7 +24,7 @@ resource "aws_subnet" "public" {
   availability_zone       = var.azs[count.index]
   map_public_ip_on_launch = true
 
-  tags = merge(var.tags, { Name = "${var.name_prefix != "" ? var.name_prefix : "upskill"}-public-${count.index + 1}" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-public-${count.index + 1}" })
 }
 
 resource "aws_subnet" "private" {
@@ -35,7 +35,7 @@ resource "aws_subnet" "private" {
   availability_zone       = var.azs[count.index]
   map_public_ip_on_launch = false
 
-  tags = merge(var.tags, { Name = "${var.name_prefix != "" ? var.name_prefix : "upskill"}-private-${count.index + 1}" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-private-${count.index + 1}" })
 }
 
 resource "aws_route_table" "public" {
@@ -46,7 +46,7 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.igw.id
   }
 
-  tags = merge(var.tags, { Name = "${var.name_prefix != "" ? var.name_prefix : "upskill"}-public-rt" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-public-rt" })
 }
 
 resource "aws_route_table_association" "public_assoc" {
@@ -59,7 +59,7 @@ resource "aws_route_table_association" "public_assoc" {
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.this.id
 
-  tags = merge(var.tags, { Name = "${var.name_prefix != "" ? var.name_prefix : "upskill"}-private-rt" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-private-rt" })
 }
 
 resource "aws_route_table_association" "private_assoc" {
@@ -73,7 +73,7 @@ resource "aws_eip" "nat_eip" {
   count = var.create_nat ? 1 : 0
 
   domain = "vpc"
-  tags = merge(var.tags, { Name = "${var.name_prefix != "" ? var.name_prefix : "upskill"}-nat-eip" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-nat-eip" })
 }
 
 resource "aws_nat_gateway" "nat" {
@@ -81,7 +81,7 @@ resource "aws_nat_gateway" "nat" {
 
   allocation_id = aws_eip.nat_eip[0].id
   subnet_id     = aws_subnet.public[0].id
-  tags = merge(var.tags, { Name = "${var.name_prefix != "" ? var.name_prefix : "upskill"}-nat" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-nat" })
 }
 
 resource "aws_route" "private_default_to_nat" {
@@ -93,7 +93,7 @@ resource "aws_route" "private_default_to_nat" {
 }
 
 resource "aws_security_group" "bastion_sg" {
-  name   = var.name_prefix != "" ? "${var.name_prefix}-bastion-sg" : "upskill-bastion-sg"
+  name   = "${var.name_prefix}-bastion-sg"
   vpc_id = aws_vpc.this.id
 
   description = "Allow SSH from admin IP only"
@@ -112,5 +112,5 @@ resource "aws_security_group" "bastion_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = merge(var.tags, { Name = var.name_prefix != "" ? "${var.name_prefix}-bastion-sg" : "upskill-bastion-sg" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-bastion-sg" })
 }
