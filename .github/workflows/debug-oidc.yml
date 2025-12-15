@@ -1,0 +1,52 @@
+name: Debug OIDC token (safe)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show basic runner info
+        run: |
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_SHA=$GITHUB_SHA"
+
+      - name: Get id token and print sub + aud (without printing token)
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const idToken = await core.getIDToken("sts.amazonaws.com");
+
+            const parts = idToken.split('.');
+            if (parts.length < 2) {
+              core.setFailed("failed to decode id token");
+              return;
+            }
+
+            const payload = parts[1];
+            const padded = payload
+              .replace(/-/g, '+')
+              .replace(/_/g, '/')
+              + '='.repeat((4 - payload.length % 4) % 4);
+
+            const decoded = Buffer.from(padded, 'base64').toString('utf8');
+
+            let obj = {};
+            try {
+              obj = JSON.parse(decoded);
+            } catch (e) {
+              core.setFailed("failed to parse id token payload: " + e.message);
+              return;
+            }
+
+            console.log("id_token_payload:", JSON.stringify({
+              sub: obj.sub || null,
+              aud: obj.aud || null,
+              iss: obj.iss || null
+            }));

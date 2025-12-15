@@ -1,0 +1,40 @@
+name: Promote to Prod
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume Prod role via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::269825205299:role/GitHubActions-Terraform-Prod
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform init -input=false
+        working-directory: environments/prod
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: environments/prod
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan -input=false
+        working-directory: environments/prod
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: environments/prod
