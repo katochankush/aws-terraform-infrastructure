@@ -1,14 +1,17 @@
 # Terraform
 .terraform/
 *.tfstate
+*.tfstate.*
 *.tfstate.backup
 *.tfplan
 tfplan
 .terraform.lock.hcl
+terraform.tfstate.d/
 
 # Environment
 .env
 *.pem
+*.key
 
 # OS
 .DS_Store
@@ -17,3 +20,5 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
