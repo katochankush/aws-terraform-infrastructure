@@ -34,14 +34,13 @@ variable "create_nat" {
 variable "tags" {
   type    = map(string)
   default = {
-    Owner = "upskill"
-    Project = "vpc-lab"
+    Owner = "DevOps-Project"
+    Project = "aws-infrastructure"
   }
 }
 
 variable "allow_ssh_cidr" {
   type        = string
-  description = "CIDR allowed to SSH to bastion (set to your-ip/32)"
-  default     = "122.177.241.118/32"
+  description = "CIDR allowed to SSH to bastion - REPLACE with your IP before deployment"
+  default     = "203.0.113.50/32"  # Example IP - Update before use
 }
-
